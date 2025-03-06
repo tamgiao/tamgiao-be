@@ -41,6 +41,7 @@ const allowedOrigins = [
     "http://localhost:8081",
     "http://localhost:3000", // Thêm cổng 3000
     "http://localhost:5173",
+    "https://tamgiao.github.io/",
 ];
 
 app.use(
