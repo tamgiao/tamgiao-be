@@ -1,0 +1,16 @@
+"dependencies": {
+    "axios": "^1.7.9",        // HTTP client for making API requests (alternative to fetch)
+    "bcrypt": "^5.1.1",       // Library for hashing and verifying passwords securely
+    "body-parser": "^1.20.3", // Middleware to parse incoming request bodies (JSON, URL-encoded)
+    "cors": "^2.8.5",         // Enables Cross-Origin Resource Sharing (CORS) for API access from different domains
+    "dotenv": "^16.4.7",      // Loads environment variables from a .env file for secure configuration
+    "express": "^4.21.2",     // Web framework for building APIs and server-side applications
+    "helmet": "^8.0.0",       // Adds security headers to prevent common web vulnerabilities
+    "http-errors": "^2.0.0",  // Helps create and handle HTTP errors with meaningful status codes
+    "jsonwebtoken": "^9.0.2", // Generates and verifies JSON Web Tokens (JWT) for authentication
+    "jwt-decode": "^4.0.0",   // Decodes JWT tokens without verifying them (useful for extracting payload data)
+    "mongodb": "^6.13.0",     // Official MongoDB driver for connecting to a MongoDB database
+    "mongoose": "^8.9.5",     // ODM (Object-Document Mapping) for MongoDB, making database interactions easier
+    "morgan": "^1.10.0",      // HTTP request logger, useful for debugging API calls
+    "nodemailer": "^6.10.0"   // Library for sending emails (e.g., user verification, notifications)
+}
