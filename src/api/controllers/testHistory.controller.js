@@ -4,6 +4,8 @@ import Question from "../models/question.model.js";
 import {MailService} from "../services/index.js";
 import actions from '../actions/requestController.action.js';
 
+const API_KEY = process.env.API_KEY_GPT;
+
 const getUserAnswerForQuestion = async (req, res, next) => {
     try {
         const { userId, testId } = req.params;
@@ -163,11 +165,11 @@ const commentAI = async (questionAndAnswer, testName) => {
     - Hãy cung cấp lời khuyên, phương pháp và tiến trình phục hồi một cách chi tiết, có khoa học, dễ áp dụng và phù hợp với những câu trả lời mà người dùng đã chọn trong bài kiểm tra.
     `;
     // console.log("GPT_API_KEY:", process.env.API_KEY_GPT);
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("https://api.yescale.io/v1/chat/completions", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${process.env.API_KEY_GPT}`,
+                Authorization: `Bearer ${API_KEY}`,
             },
             body: JSON.stringify({
                 model: "gpt-4o",
