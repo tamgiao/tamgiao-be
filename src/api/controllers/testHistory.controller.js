@@ -163,8 +163,8 @@ const commentAI = async (questionAndAnswer, testName) => {
     **Lưu ý**:
     - Hãy cung cấp lời khuyên, phương pháp và tiến trình phục hồi một cách chi tiết, có khoa học, dễ áp dụng và phù hợp với những câu trả lời mà người dùng đã chọn trong bài kiểm tra.
     `;
-        console.log("GPT_API_KEY:", process.env.API_KEY_GPT);
-        const response = await fetch("https://api.yescale.io/v1/chat/completions", {
+    // console.log("GPT_API_KEY:", process.env.API_KEY_GPT);
+    const response = await fetch("https://api.yescale.io/v1/chat/completions", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

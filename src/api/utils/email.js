@@ -11,15 +11,13 @@ const mailTemplate = (otp) => `
     <div style="border-bottom: 1px solid #eee">
       <a href="#" style="font-size: 1.4em; color: #00466a; text-decoration: none; font-weight: 600">TrustTalk</a>
     </div>
-    <p style="font-size: 1.1em">Hi,</p>
-    <p>Thank you for choosing TrustTalk. Use the following OTP to complete your Sign-Up procedures. OTP is valid for 5 minutes:</p>
+    <p style="font-size: 1.1em">Xin chào,</p>
+    <p>Cảm ơn vì đã chọn dịch vụ của Tâm Giao. Hãy nhập mã OTP sau đây để hoàn thành thủ tục đăng ký của bạn. Mã OTP của bạn sẽ hết hạn sau 5 phút:</p>
     <h2 style="background: #00466a; margin: 0 auto; width: max-content; padding: 0 10px; color: #fff; border-radius: 4px;">${otp}</h2>
-    <p style="font-size: 0.9em;">Regards,<br />TrustTalk</p>
+    <p style="font-size: 0.9em;">Xin cảm ơn,<br />Tâm Giao</p>
     <hr style="border: none; border-top: 1px solid #eee" />
     <div style="float: right; padding: 8px 0; color: #aaa; font-size: 0.8em; line-height: 1; font-weight: 300">
-      <p>TrustTalk Inc</p>
-      <p>1600 Amphitheatre Parkway</p>
-      <p>California</p>
+      <p>Tâm Giao</p>
     </div>
   </div>
 </div>
