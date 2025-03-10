@@ -1,8 +1,10 @@
 import Tests from "../models/test.model.js";
 import TestHistory from "../models/testHistory.model.js";
 import Question from "../models/question.model.js";
-import {MailService} from "../services/index.js";
-import actions from '../actions/requestController.action.js';
+import { MailService } from "../services/index.js";
+import actions from "../actions/requestController.action.js";
+
+const API_KEY = process.env.API_KEY_GPT;
 
 const getUserAnswerForQuestion = async (req, res, next) => {
     try {
@@ -44,9 +46,9 @@ const getUserAnswerForQuestion = async (req, res, next) => {
 };
 
 const submitTest = async (req, res, next) => {
-  try {
-    const { userId, testId } = req.params;
-    const { answers, userInfo } = req.body;
+    try {
+        const { userId, testId } = req.params;
+        const { answers, userInfo } = req.body;
 
         const test = await Tests.findById(testId);
         console.log("Ten bai kiem tra", test.title);
@@ -74,32 +76,31 @@ const submitTest = async (req, res, next) => {
 
         savedTestHistory.score = totalScore;
 
-    if (userInfo) {
-        console.log("name: " , userInfo.name);
-        // const commentAi = "comment Ai lỗi";
-      const commentAi = await commentAI(answers, testName);
-      savedTestHistory.commentAI = commentAi;
-      console.log("Chuẩn bị gửi mail");
-      const mailService = MailService();
-      await mailService.sendEmail(userInfo.mail, userInfo.name, commentAi, actions.SUBMIT_TEST);
-      console.log("Gui mail thanh cong");
+        if (userInfo) {
+            console.log("name: ", userInfo.name);
+            // const commentAi = "comment Ai lỗi";
+            const commentAi = await commentAI(answers, testName);
+            savedTestHistory.commentAI = commentAi;
+            console.log("Chuẩn bị gửi mail");
+            const mailService = MailService();
+            await mailService.sendEmail(userInfo.mail, userInfo.name, commentAi, actions.SUBMIT_TEST);
+            console.log("Gui mail thanh cong");
+        }
+
+        // await savedTestHistory.save();
+
+        res.json({
+            userName: savedTestHistory.userId.fullName,
+            testTitle: savedTestHistory.testId.title,
+            score: totalScore,
+            result: resultText,
+            questions: savedTestHistory.questions,
+            commentAI: savedTestHistory.commentAI,
+        });
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({ message: "Lỗi server." });
     }
-
-    // await savedTestHistory.save();
-
-    res.json({
-      userName: savedTestHistory.userId.fullName,
-      testTitle: savedTestHistory.testId.title,
-      score: totalScore,
-      result: resultText,
-      questions: savedTestHistory.questions,
-     commentAI: savedTestHistory.commentAI,
-    });
-
-  } catch (error) {
-    console.error("Error:", error);
-    res.status(500).json({ message: "Lỗi server." });
-  }
 };
 
 const calculateScore = async (testHistory, answers) => {
@@ -162,12 +163,12 @@ const commentAI = async (questionAndAnswer, testName) => {
     **Lưu ý**:
     - Hãy cung cấp lời khuyên, phương pháp và tiến trình phục hồi một cách chi tiết, có khoa học, dễ áp dụng và phù hợp với những câu trả lời mà người dùng đã chọn trong bài kiểm tra.
     `;
-    // console.log("GPT_API_KEY:", process.env.API_KEY_GPT);
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        console.log("GPT_API_KEY:", process.env.API_KEY_GPT);
+        const response = await fetch("https://api.yescale.io/v1/chat/completions", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${process.env.API_KEY_GPT}`,
+                Authorization: `Bearer ${API_KEY}`,
             },
             body: JSON.stringify({
                 model: "gpt-4o",

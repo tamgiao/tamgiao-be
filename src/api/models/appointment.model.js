@@ -3,12 +3,12 @@ import mongoose, { Schema } from "mongoose";
 // Appointment schema
 const AppointmentSchema = new Schema(
     {
-        patientId: {
+        userId: {
             type: Schema.Types.ObjectId,
             required: true,
             ref: "users", // Assuming "User" model for patients
         },
-        psychologistId: {
+        userId: {
             type: Schema.Types.ObjectId,
             required: true,
             ref: "users", // Assuming "User" model for psychologists

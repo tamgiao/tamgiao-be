@@ -54,7 +54,6 @@ export const getPsychologistById = async (req, res) => {
     try {
         const { doctorId } = req.params;
 
-        // Find the psychologist by ID and ensure the role is "psychologist"
         const psychologist = await User.findOne({ _id: doctorId, role: "psychologist" }).select("-password");
 
         if (!psychologist) {
@@ -157,10 +156,35 @@ export const getAppointmentById = async (req, res) => {
     }
 };
 
+export const getAppointmentList = async (req, res) => {
+    try {
+        const appointments = await Appointment.find()
+            .populate({
+                path: "patientId",
+                select: "fullName email",
+                match: { _id: { $exists: true, $type: "objectId" } }, // Ensure valid ObjectId
+                strictPopulate: false,
+            })
+            .populate({
+                path: "psychologistId",
+                select: "fullName email",
+                match: { _id: { $exists: true, $type: "objectId" } }, // Ensure valid ObjectId
+                strictPopulate: false,
+            })
+            .sort({ "scheduledTime.date": 1 });
+
+
+        res.status(200).json(appointments);
+    } catch (error) {
+        res.status(500).json({ message: "Error fetching appointments", error });
+    }
+};
+
 export default {
     getPsychologistList,
     getUniqueSpecializations,
     getPsychologistById,
     saveAppointment,
     getAppointmentById,
+    getAppointmentList,
 };
