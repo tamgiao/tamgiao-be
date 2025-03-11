@@ -7,7 +7,7 @@ import testRouter from "./test.router.js";
 import testHistoryRouter from "./testHistory.router.js";
 import psychologistRouter from "./psychologist.routes.js";
 import adminRouter from "./admin.router.js";
-
+import appointmentRouter from "./appointment.routes.js";
 
 const router = express.Router();
 router.use("/blogposts", blogPostRoutes);
@@ -18,5 +18,6 @@ router.use("/question", questionRouter);
 router.use("/test", testRouter);
 router.use("/test-history", testHistoryRouter);
 router.use("/admin", adminRouter);
+router.use("/payment", appointmentRouter);
 
 export default router;
