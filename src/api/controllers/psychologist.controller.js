@@ -4,7 +4,7 @@ import Availability from "../models/availability.model.js";
 import mongoose from "mongoose";
 import multer from "multer";
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const upload = multer().none();
 
 export const getPsychologistList = async (req, res) => {
     try {
@@ -78,52 +78,58 @@ export const getPsychologistById = async (req, res) => {
 };
 
 export const saveAppointment = async (req, res) => {
-    try {
-        const { userId, psychologistId, scheduleId, symptoms } = req.body;
-
-        if (!userId || !psychologistId || !scheduleId || !symptoms) {
-            return res.status(400).json({ message: "Missing required fields" });
+    upload(req, res, async (err) => {
+        if (err) {
+            return res.status(400).json({ message: "Error parsing form data", error: err });
         }
 
-        // Validate ObjectIds
-        if (
-            !mongoose.Types.ObjectId.isValid(userId) ||
-            !mongoose.Types.ObjectId.isValid(psychologistId) ||
-            !mongoose.Types.ObjectId.isValid(scheduleId)
-        ) {
-            return res.status(400).json({ message: "Invalid ID format" });
+        try {
+            const { patientId, psychologistId, scheduleId, symptoms } = req.body;
+
+            if (!patientId || !psychologistId || !scheduleId || !symptoms) {
+                return res.status(400).json({ message: "Missing required fields" });
+            }
+
+            // Validate ObjectIds
+            if (
+                !mongoose.Types.ObjectId.isValid(patientId) ||
+                !mongoose.Types.ObjectId.isValid(psychologistId) ||
+                !mongoose.Types.ObjectId.isValid(scheduleId)
+            ) {
+                return res.status(400).json({ message: "Invalid ID format" });
+            }
+
+            // Fetch schedule details
+            const availability = await Availability.findById(scheduleId);
+            if (!availability) {
+                return res.status(404).json({ message: "Schedule not found" });
+            }
+
+            // Create new appointment
+            const newAppointment = new Appointment({
+                patientId: patientId,
+                psychologistId,
+                scheduledTime: {
+                    date: availability.date,
+                    startTime: availability.startTime,
+                    endTime: availability.endTime,
+                },
+                status: "Pending",
+                note: symptoms,
+            });
+
+            // Save to database
+            const savedAppointment = await newAppointment.save();
+
+            res.status(201).json({
+                message: "Appointment booked successfully!",
+                appointmentId: savedAppointment._id,
+            });
+        } catch (error) {
+            console.error("Error saving appointment:", error);
+            res.status(500).json({ message: "Server error. Please try again later." });
         }
-
-        // Fetch schedule details
-        const availability = await Availability.findById(scheduleId);
-        if (!availability) {
-            return res.status(404).json({ message: "Schedule not found" });
-        }
-
-        // Create new appointment
-        const newAppointment = new Appointment({
-            userId,
-            psychologistId,
-            scheduledTime: {
-                date: availability.date,
-                startTime: availability.startTime,
-                endTime: availability.endTime,
-            },
-            status: "Pending",
-            note: symptoms,
-        });
-
-        // Save to database
-        const savedAppointment = await newAppointment.save();
-
-        res.status(201).json({
-            message: "Appointment booked successfully!",
-            appointmentId: savedAppointment._id,
-        });
-    } catch (error) {
-        console.error("Error saving appointment:", error);
-        res.status(500).json({ message: "Server error. Please try again later." });
-    }
+    });
 };
 
 export const getAppointmentById = async (req, res) => {
