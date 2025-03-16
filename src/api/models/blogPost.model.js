@@ -24,7 +24,7 @@ const CommentSchema = new Schema(
 const BlogPostSchema = new Schema(
     {
         _id: {
-            type: mongoose.Schema.Types.ObjectId, // Chuyển từ ObjectId sang String
+            type: mongoose.Schema.Types.ObjectId,
         },
         title: {
             type: String,
@@ -34,6 +34,10 @@ const BlogPostSchema = new Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: "users", // Referring to the User collection
             required: true,
+        },
+        tag: {
+            type: [String], // Array of strings for tags
+            default: [], // Default to an empty array
         },
         image: {
             type: String,
