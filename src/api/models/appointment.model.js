@@ -13,6 +13,25 @@ const AppointmentSchema = new Schema(
             required: true,
             ref: "users", // Assuming "User" model for psychologists
         },
+        availabilityId: {
+            type: Schema.Types.ObjectId,
+            required: true,
+            ref: "availabilities", // Reference to the availability slot
+        },
+        paymentInformation: {
+            orderCode: {
+                type: Number,
+            },
+            description: {
+                type: String,
+            },
+            expiredAt: {
+                type: Number, // Unix timestamp
+            },
+            checkoutUrl: {
+                type: String,
+            },
+        },
         scheduledTime: {
             date: {
                 type: Date,

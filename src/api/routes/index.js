@@ -18,6 +18,6 @@ router.use("/question", questionRouter);
 router.use("/test", testRouter);
 router.use("/test-history", testHistoryRouter);
 router.use("/admin", adminRouter);
-router.use("/payment", appointmentRouter);
+router.use("/appointment", appointmentRouter);
 
 export default router;

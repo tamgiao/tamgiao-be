@@ -16,6 +16,7 @@ const MedicalProfileSchema = new Schema(
 // Psychologist schema for psychologists
 const PsychologistProfileSchema = new Schema(
     {
+        overallProfile: { type: String },
         professionalLevel: { type: String, required: true },
         educationalLevel: { type: String, required: true },
         specialization: { type: String, required: true },
@@ -70,7 +71,7 @@ const UserSchema = new Schema(
         status: {
             type: String,
             enum: ["Active", "Inactive"],
-            default: "Active",
+            default: "Inactive",
         },
         role: {
             type: String,
