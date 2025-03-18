@@ -146,13 +146,13 @@ export const saveAppointment = async (req, res) => {
             const expiredAt = Math.floor(Date.now() / 1000) + 5 * 60; // Unix Timestamp
 
             const paymentBody = {
-                amount: 5000,
+                amount: 350000,
                 description: "Tu van truc tuyen",
                 items: [
                     {
                         name: `Buổi tư vấn với tư vấn viên ${psychologist.fullName}`,
                         quantity: 1,
-                        price: 5000,
+                        price: 350000,
                     },
                 ],
                 expiredAt,
