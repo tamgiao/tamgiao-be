@@ -70,3 +70,23 @@ export const cancelPaymentLink = async (orderCode) => {
         throw new Error(error.message || "Failed to cancel payment link");
     }
 };
+
+export const checkPaymentStatus = async (orderCode) => {
+    try {
+        if (!orderCode) {
+            throw new Error("Missing orderCode");
+        }
+
+        const paymentStatus = await payOS.getPaymentLinkInformation(orderCode);
+
+        if (!paymentStatus) {
+            throw new Error("Payment not found");
+        }
+
+        return { status: paymentStatus.status };
+    } catch (error) {
+        console.error("Error checking payment status:", error);
+        throw new Error(error.message || "Server error");
+    }
+};
+

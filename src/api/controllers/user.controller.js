@@ -115,8 +115,14 @@ export const loginUser = async (req, res) => {
             return res.status(400).json({ message: "Invalid email/phone or password" });
         }
 
+        if (user.status === "Banned") {
+            return res.status(400).json({
+                message: "Account is Banned. Please contact customer support for more information.",
+            });
+        }
+
         // Check if the user is inactive
-        if (user.status !== "Active") {
+        if (user.status === "Inactive") {
             const verificationCode = generateVerificationCode();
 
             // Update user with new verification code

@@ -55,6 +55,10 @@ const AppointmentSchema = new Schema(
             type: String,
             required: false, // The note field is optional
         },
+        meetURL: {
+            type: String,
+            required: false, // The note field is optional
+        },
     },
     {
         timestamps: true, // Automatically adds createdAt and updatedAt

@@ -70,7 +70,7 @@ const UserSchema = new Schema(
         },
         status: {
             type: String,
-            enum: ["Active", "Inactive"],
+            enum: ["Active", "Inactive", "Banned"],
             default: "Inactive",
         },
         role: {

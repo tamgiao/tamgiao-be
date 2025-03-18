@@ -1,6 +1,7 @@
 import Appointment from "../models/appointment.model.js";
 import Availability from "../models/availability.model.js";
-import { cancelPaymentLink } from "../services/payOS.service.js";
+import { cancelPaymentLink, checkPaymentStatus } from "../services/payOS.service.js";
+import { createMeetURL } from "../services/googleCalendar.service.js";
 import PayOS from "@payos/node";
 import dotenv from "dotenv";
 
@@ -13,6 +14,7 @@ const checksumKey = process.env.PAYOS_CHECKSUM_KEY;
 const payOS = new PayOS(clientId, apiKey, checksumKey);
 
 const paymentTimers = new Map(); // Global Map to store timers
+const paymentCheckIntervals = new Map();
 
 export const createPaymentLink = async (req, res) => {
     try {
@@ -51,7 +53,7 @@ export const createPaymentLink = async (req, res) => {
     }
 };
 
-export const checkPaymentStatus = async (req, res) => {
+export const checkPaymentStatusAPI = async (req, res) => {
     try {
         const { orderCode } = req.body;
 
@@ -113,46 +115,18 @@ export const waitForPayment = async (req, res) => {
             return res.status(400).json({ message: "Expiration time must be in the future" });
         }
 
-        console.log(`Waiting for payment... Appointment ID: ${appointmentId}, Expires in: ${timeRemaining} seconds`);
+        console.log(`Starting payment check... Appointment ID: ${appointmentId}, Expires in: ${timeRemaining} seconds`);
 
-        // Set expiration timer
-        const timer = setTimeout(async () => {
-            try {
-                const appointment = await Appointment.findById(appointmentId);
-                if (!appointment) {
-                    console.log(`Appointment ${appointmentId} not found`);
-                    return;
-                }
+        // Run an immediate check first
+        await checkPayment(appointmentId, scheduleId, expiredAt);
 
-                if (appointment.status === "Confirmed") {
-                    console.log(`Appointment ${appointmentId} is already paid. No further action needed.`);
-                    return;
-                }
+        // Run the check every 60 seconds
+        const interval = setInterval(() => checkPayment(appointmentId, scheduleId, expiredAt), 60 * 1000);
 
-                // Mark appointment as expired
-                appointment.status = "Cancelled";
-                await appointment.save();
+        // Store the interval reference
+        paymentCheckIntervals.set(appointmentId, interval);
 
-                // Mark availability as not booked (since the appointment expired)
-                const availability = await Availability.findById(scheduleId);
-                if (availability) {
-                    availability.isBooked = false;
-                    await availability.save();
-                }
-
-                console.log(`Appointment ${appointmentId} expired. Schedule ${scheduleId} is now available.`);
-
-                // Remove from active timers
-                paymentTimers.delete(appointmentId);
-            } catch (error) {
-                console.error(`Error handling expiration for appointment ${appointmentId}:`, error);
-            }
-        }, timeRemaining * 1000);
-
-        // Store the timer reference
-        paymentTimers.set(appointmentId, timer);
-
-        res.status(200).json({ message: "Payment timer started", expiresIn: timeRemaining });
+        res.status(200).json({ message: "Payment check started", expiresIn: timeRemaining });
     } catch (error) {
         console.error("Error in waitForPayment function:", error);
         res.status(500).json({ message: "Server error. Please try again later." });
@@ -289,13 +263,125 @@ export const getAppointmentListByUserId = async (req, res) => {
     }
 };
 
+const checkPayment = async (appointmentId, scheduleId, expiredAt) => {
+    try {
+        const appointment = await Appointment.findById(appointmentId).populate("patientId psychologistId");
+
+        if (!appointment) {
+            console.log(`Appointment ${appointmentId} not found`);
+            clearInterval(paymentCheckIntervals.get(appointmentId));
+            paymentCheckIntervals.delete(appointmentId);
+            return;
+        }
+
+        if (!appointment.paymentInformation || !appointment.paymentInformation.orderCode) {
+            console.log(`No orderCode found for appointment ${appointmentId}`);
+            return;
+        }
+
+        const { orderCode } = appointment.paymentInformation;
+        const paymentStatus = await checkPaymentStatus(orderCode);
+
+        if (paymentStatus.status === "PAID") {
+            if (appointment.status !== "Confirmed") {
+                appointment.status = "Confirmed";
+
+                // Prepare data for creating the Meet URL
+                const meetDetails = {
+                    clientName: appointment.patientId.fullName,
+                    clientEmail: appointment.patientId.email,
+                    description: `Consultation with ${appointment.psychologistId.fullName}`,
+                    startDate: appointment.scheduledTime.date.toISOString().split("T")[0], // YYYY-MM-DD
+                    startTime: appointment.scheduledTime.startTime, // HH:mm format
+                    endTime: appointment.scheduledTime.endTime, // HH:mm format
+                };
+
+                // Generate Meet URL
+                const meetURL = await createMeetURL(meetDetails);
+                appointment.meetURL = meetURL;
+
+                await appointment.save();
+
+                console.log(`Appointment ${appointmentId} confirmed as paid. Meet URL: ${meetURL}`);
+            }
+
+            clearInterval(paymentCheckIntervals.get(appointmentId));
+            paymentCheckIntervals.delete(appointmentId);
+            return;
+        }
+
+        const now = Math.floor(Date.now() / 1000);
+        if (now >= expiredAt) {
+            appointment.status = "Cancelled";
+            await appointment.save();
+
+            const availability = await Availability.findById(scheduleId);
+            if (availability) {
+                availability.isBooked = false;
+                await availability.save();
+            }
+
+            console.log(`Appointment ${appointmentId} expired. Schedule ${scheduleId} is now available.`);
+            clearInterval(paymentCheckIntervals.get(appointmentId));
+            paymentCheckIntervals.delete(appointmentId);
+        }
+    } catch (error) {
+        console.error(`Error checking payment for appointment ${appointmentId}:`, error);
+    }
+};
+
+export const createMeetUrlAPI = async (req, res) => {
+    try {
+        const { appointmentId } = req.body;
+
+        if (!appointmentId) {
+            return res.status(400).json({ message: "Missing required appointmentId" });
+        }
+
+        const appointment = await Appointment.findById(appointmentId).populate("patientId psychologistId");
+
+        if (!appointment) {
+            console.log(`Appointment ${appointmentId} not found`);
+            clearInterval(paymentCheckIntervals.get(appointmentId));
+            paymentCheckIntervals.delete(appointmentId);
+            return res.status(404).json({ message: "Appointment not found" });
+        }
+
+        if (!appointment.patientId || !appointment.psychologistId) {
+            return res.status(500).json({ message: "Appointment data is incomplete" });
+        }
+
+        const meetDetails = {
+            clientName: appointment.patientId.fullName,
+            clientEmail: appointment.patientId.email,
+            description: `Consultation with ${appointment.psychologistId.fullName}`,
+            startDate: appointment.scheduledTime.date.toISOString().split("T")[0], // YYYY-MM-DD
+            startTime: appointment.scheduledTime.startTime, // HH:mm format
+            endTime: appointment.scheduledTime.endTime, // HH:mm format
+        };
+
+        // Generate Meet URL
+        const meetURL = await createMeetURL(meetDetails);
+
+        if (!meetURL || meetURL === "No Meet URL generated") {
+            return res.status(500).json({ message: "Failed to generate Meet URL" });
+        }
+
+        return res.status(200).json({ meetURL });
+    } catch (error) {
+        console.error(`Error creating Meet URL:`, error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
 export default {
     createPaymentLink,
-    checkPaymentStatus,
+    checkPaymentStatusAPI,
     updateAppointment,
     waitForPayment,
     confirmPayment,
     cancelPayment,
     checkPendingAppointmentByUserId,
     getAppointmentListByUserId,
+    createMeetUrlAPI,
 };
