@@ -111,7 +111,29 @@ export const saveAppointment = async (req, res) => {
                 return res.status(400).json({ message: "Schedule already booked" });
             }
 
-            // Mark schedule as booked
+            // 🛑 Check for appointment conflicts
+            const confirmedAppointments = await Appointment.find({
+                patientId,
+                status: "Confirmed",
+                "scheduledTime.date": availability.date, // Only check on the same date
+            });
+
+            const hasConflict = confirmedAppointments.some((appointment) => {
+                return (
+                    (availability.startTime >= appointment.scheduledTime.startTime &&
+                        availability.startTime < appointment.scheduledTime.endTime) ||
+                    (availability.endTime > appointment.scheduledTime.startTime &&
+                        availability.endTime <= appointment.scheduledTime.endTime) ||
+                    (availability.startTime <= appointment.scheduledTime.startTime &&
+                        availability.endTime >= appointment.scheduledTime.endTime)
+                );
+            });
+
+            if (hasConflict) {
+                return res.status(400).json({ message: "You already have a confirmed appointment at this time." });
+            }
+
+            // ✅ No conflicts, proceed with booking
             availability.isBooked = true;
             await availability.save();
 
@@ -143,16 +165,16 @@ export const saveAppointment = async (req, res) => {
             const savedAppointment = await newAppointment.save();
 
             // Set expiration time (5 minutes from now)
-            const expiredAt = Math.floor(Date.now() / 1000) + 1440 * 60; // Unix Timestamp
+            const expiredAt = Math.floor(Date.now() / 1000) + 1 * 60; // Unix Timestamp
 
             const paymentBody = {
-                amount: 350000,
+                amount: 5000,
                 description: "Tu van truc tuyen",
                 items: [
                     {
                         name: `Buổi tư vấn với tư vấn viên ${psychologist.fullName}`,
                         quantity: 1,
-                        price: 350000,
+                        price: 5000,
                     },
                 ],
                 expiredAt,
@@ -185,9 +207,6 @@ export const getAppointmentById = async (req, res) => {
         if (!appointment) {
             return res.status(404).json({ message: "Appointment not found" });
         }
-
-        // Extract orderCode from paymentInformation if it exists
-        const orderCode = appointment.paymentInformation?.orderCode || null;
 
         // Return the found appointment along with the order code
         res.status(200).json(appointment);

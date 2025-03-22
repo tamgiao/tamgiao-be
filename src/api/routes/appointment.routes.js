@@ -9,8 +9,10 @@ appointmentRouter.post("/update_appointment/:appointmentId", AppointmentControll
 appointmentRouter.post("/wait_for_payment", AppointmentController.waitForPayment);
 appointmentRouter.post("/approve_appointment", AppointmentController.confirmPayment);
 appointmentRouter.post("/cancel_appointment", AppointmentController.cancelPayment);
-appointmentRouter.post("/appointments/:userId", AppointmentController.getAppointmentListByUserId);
+appointmentRouter.get("/appointment-list/:userId", AppointmentController.getAppointmentListByUserId);
 appointmentRouter.post("/count-pending-appointment", AppointmentController.checkPendingAppointmentByUserId);
 appointmentRouter.post("/create-meet-url", AppointmentController.createMeetUrlAPI);
+appointmentRouter.post("/appointment-details", AppointmentController.getUserAppointmentById);
+appointmentRouter.post("/create-zoom-meeting", AppointmentController.createZoomMeetingAPI);
 
 export default appointmentRouter;

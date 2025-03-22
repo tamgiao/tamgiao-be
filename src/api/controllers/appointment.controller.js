@@ -2,6 +2,8 @@ import Appointment from "../models/appointment.model.js";
 import Availability from "../models/availability.model.js";
 import { cancelPaymentLink, checkPaymentStatus } from "../services/payOS.service.js";
 import { createMeetURL } from "../services/googleCalendar.service.js";
+import { createZoomMeeting } from "../services/zoom.service.js";
+import Email from "../utils/email.js";
 import PayOS from "@payos/node";
 import dotenv from "dotenv";
 
@@ -117,11 +119,8 @@ export const waitForPayment = async (req, res) => {
 
         console.log(`Starting payment check... Appointment ID: ${appointmentId}, Expires in: ${timeRemaining} seconds`);
 
-        // Run an immediate check first
-        await checkPayment(appointmentId, scheduleId, expiredAt);
-
-        // Run the check every 60 seconds
-        const interval = setInterval(() => checkPayment(appointmentId, scheduleId, expiredAt), 60 * 1000);
+        // Run the check every x seconds
+        const interval = setInterval(() => checkPayment(appointmentId, scheduleId, expiredAt), 10 * 1000);
 
         // Store the interval reference
         paymentCheckIntervals.set(appointmentId, interval);
@@ -190,6 +189,7 @@ export const cancelPayment = async (req, res) => {
 
         // Update the appointment status to "Cancelled"
         appointment.status = "Cancelled";
+        appointment.paymentInformation.status = "CANCELLED";
         await appointment.save();
 
         // Update the availability slot's `isBooked` to false
@@ -252,7 +252,7 @@ export const getAppointmentListByUserId = async (req, res) => {
 
         // Fetch all appointments for the given patientId
         const appointments = await Appointment.find({ patientId: userId })
-            .populate("psychologistId", "name email") // Populate psychologist details
+            .populate("psychologistId", "fullName email gender phone") // Populate psychologist details
             .populate("availabilityId") // Populate availability details
             .sort({ createdAt: -1 }); // Sort by latest appointments
 
@@ -285,24 +285,50 @@ const checkPayment = async (appointmentId, scheduleId, expiredAt) => {
         if (paymentStatus.status === "PAID") {
             if (appointment.status !== "Confirmed") {
                 appointment.status = "Confirmed";
+                appointment.paymentInformation.status = "PAID";
 
-                // Prepare data for creating the Meet URL
-                const meetDetails = {
-                    clientName: appointment.patientId.fullName,
-                    clientEmail: appointment.patientId.email,
-                    description: `Consultation with ${appointment.psychologistId.fullName}`,
-                    startDate: appointment.scheduledTime.date.toISOString().split("T")[0], // YYYY-MM-DD
-                    startTime: appointment.scheduledTime.startTime, // HH:mm format
-                    endTime: appointment.scheduledTime.endTime, // HH:mm format
-                };
+                const meeting = await createZoomMeeting("Tu van tam ly", appointment.scheduledTime.startTime, 60);
 
-                // Generate Meet URL
-                const meetURL = await createMeetURL(meetDetails);
-                appointment.meetURL = meetURL;
+                const browserUrl = meeting.join_url.replace(/\/j\/(\d+)/, "/wc/join/$1");
+                console.log("", browserUrl);
+                appointment.meetingURL = browserUrl;
 
                 await appointment.save();
 
-                console.log(`Appointment ${appointmentId} confirmed as paid. Meet URL: ${meetURL}`);
+                const subject = "Thông báo lịch hẹn khám của bạn"; // Email subject
+                const content = `
+                <h3>Thông báo về lịch hẹn khám</h3>
+                <p>Chào ${appointment.patientId.fullName},</p>
+                <p>Chúng tôi xin thông báo về lịch hẹn khám của bạn với chuyên gia ${
+                    appointment.psychologistId.fullName
+                }.</p>
+                <p><strong>Thông tin lịch hẹn:</strong></p>
+                <p><strong>Ngày:</strong> ${new Date(appointment.scheduledTime.date).toLocaleDateString("vi-VN", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "numeric",
+                    day: "numeric",
+                })}</p> 
+                <p><strong>Giờ:</strong> ${new Date(appointment.scheduledTime.startTime).toLocaleTimeString("vi-VN", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: false,
+                })} đến ${new Date(appointment.scheduledTime.endTime).toLocaleTimeString("vi-VN", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: false,
+                })}</p>
+                <p><strong>Chuyên gia tư vấn:</strong> ${appointment.psychologistId.fullName}</p>
+                <p><strong>Hình thức:</strong> Tư vấn trực tuyến</p>
+                <p><strong>Giá tiền:</strong> 350.000 đ</p>
+                <p>Vui lòng chuẩn bị trước 10 phút và đảm bảo kết nối internet ổn định cho buổi tư vấn trực tuyến.</p>
+                <p>Trân trọng,</p>
+                <p>Đội ngũ hỗ trợ</p>
+            `;
+
+                await Email.sendCustomEmail(appointment.patientId.email, subject, content);
+
+                console.log(`Appointment ${appointmentId} confirmed as paid.`);
             }
 
             clearInterval(paymentCheckIntervals.get(appointmentId));
@@ -313,6 +339,7 @@ const checkPayment = async (appointmentId, scheduleId, expiredAt) => {
         const now = Math.floor(Date.now() / 1000);
         if (now >= expiredAt) {
             appointment.status = "Cancelled";
+            appointment.paymentInformation.status = "EXPIRED";
             await appointment.save();
 
             const availability = await Availability.findById(scheduleId);
@@ -374,6 +401,61 @@ export const createMeetUrlAPI = async (req, res) => {
     }
 };
 
+export const getUserAppointmentById = async (req, res) => {
+    const { userId, appointmentId } = req.body;
+
+    try {
+        // Find the appointment and ensure it belongs to the given userId
+        const appointment = await Appointment.findOne({ _id: appointmentId, patientId: userId }).populate(
+            "psychologistId",
+            "email fullName phone gender profileImg psychologist"
+        );
+
+        if (!appointment) {
+            return res.status(404).json({ message: "Appointment not found or does not belong to the user" });
+        }
+
+        res.status(200).json({ success: true, appointment });
+    } catch (error) {
+        console.error("Error fetching appointment:", error);
+        res.status(500).json({ message: "Internal server error", error: error.message });
+    }
+};
+
+export const createZoomMeetingAPI = async (req, res) => {
+    try {
+        // Extract parameters from request body
+        const { topic, startTime, duration } = req.body;
+
+        // Basic validation
+        if (!topic || !duration || !startTime) {
+            return res.status(400).json({ error: "Invalid info" });
+        }
+
+        // Create Zoom meeting
+        const meeting = await createZoomMeeting(topic, startTime, duration);
+
+        // Return success response
+        return res.status(201).json({
+            message: "Zoom meeting created successfully",
+            meetingDetails: {
+                meetingId: meeting.id,
+                topic: meeting.topic,
+                startTime: meeting.start_time,
+                duration: meeting.duration,
+                joinUrl: meeting.join_url,
+                hostUrl: meeting.start_url,
+            },
+        });
+    } catch (error) {
+        console.error("Error creating Zoom meeting:", error);
+        return res.status(500).json({
+            error: "Failed to create Zoom meeting",
+            details: error.message,
+        });
+    }
+};
+
 export default {
     createPaymentLink,
     checkPaymentStatusAPI,
@@ -384,4 +466,6 @@ export default {
     checkPendingAppointmentByUserId,
     getAppointmentListByUserId,
     createMeetUrlAPI,
+    getUserAppointmentById,
+    createZoomMeetingAPI,
 };

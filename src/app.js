@@ -15,7 +15,29 @@ app.use(express.urlencoded({ limit: "5mb", extended: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(morgan("dev"));
-app.use(helmet());
+app.use(helmet()); // This sets X-Content-Type-Options by default
+
+// Add Referrer-Policy and Content-Security-Policy explicitly
+app.use(
+    helmet.referrerPolicy({
+        policy: "no-referrer-when-downgrade",
+    })
+);
+
+app.use(
+    helmet.contentSecurityPolicy({
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://source.zoom.us"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:"],
+            connectSrc: ["'self'"],
+            fontSrc: ["'self'", "https:", "data:"],
+            objectSrc: ["'none'"],
+            upgradeInsecureRequests: [],
+        },
+    })
+);
 app.set("json replacer", (key, value) => {
     if (typeof value === "object" && value !== null) {
         return JSON.parse(JSON.stringify(value));

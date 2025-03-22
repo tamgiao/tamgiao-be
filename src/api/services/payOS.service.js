@@ -9,7 +9,7 @@ const checksumKey = process.env.PAYOS_CHECKSUM_KEY;
 
 const payOS = new PayOS(clientId, apiKey, checksumKey);
 
-export const createPaymentLink = async ({ amount, description, items, expiredAt }) => {
+export const createPaymentLink = async ({ amount, description, items, expiredAt, returnUrl, cancelUrl }) => {
     try {
         const orderCode = Number(String(Date.now()).slice(-6));
 
@@ -89,4 +89,3 @@ export const checkPaymentStatus = async (orderCode) => {
         throw new Error(error.message || "Server error");
     }
 };
-

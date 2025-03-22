@@ -3,55 +3,69 @@ import { body, validationResult } from "express-validator";
 
 const getAllBlog = async (req, res) => {
     try {
-        const blogPosts = await BlogPost.find();
+        const blogPosts = await BlogPost.find().sort({ createdAt: -1 }).select("-comments").exec();
+
         res.status(200).json(blogPosts);
     } catch (error) {
-        console.log(error);
-        res.status(500).json({ error: error.message });
+        console.error("Error fetching blog posts:", error);
+        res.status(500).json({ error: "Failed to fetch blog posts" });
     }
 };
 
-const getBlogDetail = async (req, res) => {
+export const getBlogDetail = async (req, res) => {
     try {
         const { id } = req.params;
-        const blogPost = await BlogPost.findById(id);
+
+        const blogPost = await BlogPost.findById(id).populate("comments.userId", "fullName avatar"); // Populate each commenter
+
         if (!blogPost) {
             return res.status(404).json({ message: "Blog post not found" });
         }
 
         res.status(200).json(blogPost);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: error.message });
+        console.error("Error fetching blog post detail:", error);
+        res.status(500).json({ message: "Internal server error" });
     }
 };
 
-const addComment = async (req, res) => {
+export const addComment = async (req, res) => {
     try {
-        const { postId } = req.params; // ID của bài viết cần thêm bình luận
-        const { userId, username, comment } = req.body;
+        const { postId } = req.params; // blog post ID from URL
+        const { userId, content } = req.body;
 
-        const blogPost = await BlogPost.findById(postId);
-        if (!blogPost) {
-            return res.status(404).json({ error: "Bài viết không tồn tại" });
+        if (!userId || !content) {
+            return res.status(400).json({ message: "User ID and comment content are required." });
         }
 
+        // Create the new comment object
         const newComment = {
             userId,
-            username,
-            comment,
-            createdAt: new Date(),
+            content,
+            createAt: new Date(),
         };
 
-        blogPost.comments.push(newComment);
-        await blogPost.save();
+        // Push the new comment to the blog post
+        const updatedPost = await BlogPost.findByIdAndUpdate(
+            postId,
+            { $push: { comments: newComment } },
+            { new: true }
+        ).populate("comments.userId", "fullName avatar"); // Optional: populate user data
 
-        res.status(201).json(blogPost);
+        if (!updatedPost) {
+            return res.status(404).json({ message: "Blog post not found." });
+        }
+
+        return res.status(200).json({
+            message: "Comment added successfully.",
+            post: updatedPost,
+        });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: error.message });
+        console.error("Error adding comment:", error);
+        return res.status(500).json({ message: "Internal server error." });
     }
 };
+
 const updateComment = async (req, res) => {
     try {
         const { postId, commentId } = req.params;

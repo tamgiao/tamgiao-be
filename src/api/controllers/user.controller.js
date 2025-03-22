@@ -1,4 +1,5 @@
 import User from "../models/user.model.js";
+import EmailModel from "../models/email.model.js";
 import { generateVerificationCode } from "../utils/auth.js";
 import Email from "../utils/email.js";
 import { sendVerificationSMS } from "../utils/phone.js";
@@ -17,6 +18,64 @@ const findAllUsers = async (req, res, next) => {
         res.json(users);
     } catch (error) {
         console.error("Error fetching users: ", error);
+        next(error);
+    }
+};
+
+const getUserById = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+
+        // Tìm người dùng theo ID
+        const user = await User.findById(id).lean();
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Định dạng lại dữ liệu trước khi trả về
+        const formattedUser = {
+            _id: user._id,
+            _idObject: `ObjectId('${user._id.toString()}')`,
+            _idString: user._id.toString(),
+            email: user.email || null,
+            fullName: user.fullName || null,
+            gender: user.gender || null,
+            address: user.address || null,
+            dob: user.dob || null,
+            role: user.role || null,
+            profileImg: user.profileImg || null,
+        };
+
+        res.json(formattedUser);
+    } catch (error) {
+        console.error("Error fetching user by ID: ", error);
+        next(error);
+    }
+};
+
+const updateUser = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { fullName, gender, address, dob, role, profileImg } = req.body;
+
+        // Tìm và cập nhật thông tin người dùng
+        const updatedUser = await User.findByIdAndUpdate(
+            id,
+            { fullName, gender, address, dob, role, profileImg },
+            { new: true, runValidators: true } // Trả về dữ liệu sau khi cập nhật, kiểm tra validate
+        );
+
+        if (!updatedUser) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        res.json({
+            message: "User updated successfully",
+            user: updatedUser,
+        });
+    } catch (error) {
+        console.error("Error updating user:", error);
         next(error);
     }
 };
@@ -412,6 +471,38 @@ export const changePassword = async (req, res) => {
     }
 };
 
+export const subscribeEmail = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        // Validate email
+        if (!email || typeof email !== "string") {
+            return res.status(400).json({ message: "A valid email is required." });
+        }
+
+        // Check if email already exists
+        const existing = await EmailModel.findOne({ email });
+        if (existing) {
+            return res.status(409).json({ message: "This email is already subscribed." });
+        }
+
+        // Save new email
+        const newEmail = new EmailModel({ email });
+
+        await Email.sendCustomEmail(
+            email,
+            "Đã đăng ký nhận bản tin",
+            "Cảm ơn bạn đã đăng ký nhận bản tin của chúng tôi!"
+        );
+        await newEmail.save();
+
+        return res.status(201).json({ message: "Email subscribed successfully." });
+    } catch (error) {
+        console.error("Error subscribing email:", error);
+        return res.status(500).json({ message: "Internal server error." });
+    }
+};
+
 export default {
     registerUser,
     loginUser,
@@ -422,4 +513,8 @@ export default {
     sendEmail,
     forgotPassword,
     changePassword,
+    updateUser,
+    updateUser,
+    getUserById,
+    subscribeEmail,
 };
